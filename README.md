@@ -1,1 +1,3 @@
-# Granger_causality_GoogleSearch_sentiment_analysis![Image 12-06-2024 at 7 54 PM](https://github.com/Ged0x/Granger_causality_GoogleSearch_sentiment_analysis/assets/143278786/11ac416a-fed3-4cce-8b2f-439db1525b67)
+# Granger_causality_GoogleSearch_sentiment_analysis!
+
+![GIi4aAraUAAQB8V](https://github.com/Ged0x/Granger_causality_GoogleSearch_sentiment_analysis/assets/143278786/17ab5f50-dcfe-4d75-980d-b62327fd1aa5)
