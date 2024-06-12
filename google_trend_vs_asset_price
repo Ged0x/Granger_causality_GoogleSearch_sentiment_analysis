@@ -1,0 +1,99 @@
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import csv
+import datetime as datetime
+from colorama import Fore, Style
+from sklearn.preprocessing import MinMaxScaler
+from matplotlib.dates import DateFormatter
+from statsmodels.tsa.stattools import grangercausalitytests
+
+
+# Download Bitcoin price data
+df_btc_daily = yf.download('BTC-USD', start='2019-04-14', end='2024-04-14')['Adj Close']
+df_btc_weekly = df_btc_daily.resample('W').last()
+
+# Read the sentiment data from the CSV file
+file_path = "Sentiment_analysis/multiTimeline-5.csv"
+df_sentiment = pd.read_csv(file_path, skiprows=1)
+
+# Convert the 'Week' column to datetime and set it as the index
+df_sentiment['Week'] = pd.to_datetime(df_sentiment['Week'])
+df_sentiment.set_index('Week', inplace=True)
+
+# Define halving dates
+halving_dates = {
+    'November 8, 2012': '2012-11-28',
+    'July 9, 2016': '2016-07-09',
+    'May 11, 2020': '2020-05-11',
+    'April 19, 2024': '2024-04-19'
+}
+
+# Convert halving dates to datetime objects
+halving_dates = {key: pd.to_datetime(value) for key, value in halving_dates.items()}
+
+# Normalize the Bitcoin price data
+scaler_btc = MinMaxScaler()
+btc_values_scaled = scaler_btc.fit_transform(df_btc_weekly.values.reshape(-1, 1))
+df_btc_weekly_scaled = pd.DataFrame(btc_values_scaled, 
+                                    index=df_btc_weekly.index, 
+                                    columns=['BTC Price'])
+
+# Normalize the sentiment data
+scaler_sentiment = MinMaxScaler()
+sentiment_values_scaled = scaler_sentiment.fit_transform(df_sentiment.values)
+df_sentiment_scaled = pd.DataFrame(sentiment_values_scaled, 
+                                   index=df_sentiment.index, 
+                                   columns=df_sentiment.columns)
+
+
+
+# Perform Granger causality test
+max_lag = 5 # You can adjust this value based on your data
+test_results = grangercausalitytests(df_btc_weekly_scaled.join(df_sentiment_scaled.iloc[:, 0]), max_lag, verbose=False)
+
+# Plotting
+# Set the style to dark background
+plt.style.use('dark_background')
+
+# Plotting
+plt.figure(figsize=(12, 8))
+
+# Plot sentiment analysis
+plt.subplot(2, 1, 1)
+plt.plot(df_sentiment_scaled.index, df_sentiment_scaled.iloc[:, 0], marker='o', linestyle='-', color='cyan', label='Sentiment Analysis')
+plt.plot(df_btc_weekly_scaled.index, df_btc_weekly_scaled, marker='o', linestyle='-', color='orange', label='Bitcoin Price')
+
+# Adding vertical lines for halving dates if they exist or are closest to the DataFrame index
+for halving_date in halving_dates.values():
+    nearest_date = min(df_sentiment_scaled.index, key=lambda x: abs(x - halving_date))
+    plt.axvline(x=nearest_date, color='red', linestyle='--')
+
+# Adding labels and title
+plt.ylabel('Normalized Value')
+plt.title('Sentiment Analysis and Normalized Bitcoin Price over Time')
+plt.legend()
+
+# Plot Granger causality test results
+plt.subplot(2, 1, 2)
+plt.axis('off')  # Remove axis for the description
+
+# Format Granger causality test results as a description
+description = ""
+for lag in range(1, max_lag + 1):
+    description += f"Granger Causality\nnumber of lags (no zero) {lag}\n"
+    result = test_results[lag][0]  # Access the tuple and get the first element
+    f_test = result['ssr_ftest']
+    chi2_test = result['ssr_chi2test']
+    likelihood_test = result['lrtest']
+    description += f"ssr based F test:         F={f_test[0]:.4f}, p={f_test[1]:.4f}, df_denom={f_test[3]}, df_num={f_test[2]}\n"
+    description += f"ssr based chi2 test:   chi2={chi2_test[0]:.4f}, p={chi2_test[1]:.4f}, df={chi2_test[2]}\n"
+    description += f"likelihood ratio test: chi2={likelihood_test[0]:.4f}, p={likelihood_test[1]:.4f}, df={likelihood_test[2]}\n\n"
+
+# Add description to the plot
+plt.text(0.05, 0.5, description, fontsize=10, verticalalignment='center', color='white')
+
+# Display the plot
+plt.tight_layout()
+plt.show()
